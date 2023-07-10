@@ -50,10 +50,10 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
             return
         }
 
-        // if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
-        //     console.log("game over, plz create new round")
-        //     return
-        // }
+        if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
+            console.log("game over, plz create new round")
+            return
+        }
 
         // console.log("aaaa", objects[0].data.content)
         // return
