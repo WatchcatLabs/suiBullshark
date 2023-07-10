@@ -1,0 +1,24 @@
+{
+  "name": "suibullshark",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "ts-node --inspect <your-file>.ts"
+  },
+  "dependencies": {
+    "@mysten/sui.js": "^0.37.1",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^16.0.3",
+    "typescript": "^5.0.4"
+  },
+  "compilerOptions": {
+    "target": "es2015"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.4.1"
+  }
+}
