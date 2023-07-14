@@ -2,10 +2,10 @@ import * as dotenv from 'dotenv';
 
 import {SuiMnemonic} from "./src/accounts/mnemonic";
 import  {SuiTool} from "./src/suiclient/sui";
-import {Polymedia} from "./src/polymedia/polymedia";
 import {JsonRpcProvider, Connection, Ed25519Keypair} from '@mysten/sui.js';
 import {Sui8192} from "./src/sui8192/sui8192";
 import {ObjectId, SuiObjectDataOptions} from "@mysten/sui.js/src/types";
+const Manager = require('./src/AI');
 
 const ROWS = 4;
 const COLUMNS = 4;
@@ -50,6 +50,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
             return
         }
 
+        const score = objects[0].data.content["fields"]["score"]
         if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
             console.log("game over, plz create new round")
             return
@@ -60,10 +61,24 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
         let slideDirection = 0
         if (objects[0].data.content["fields"]["active_board"] != undefined) {
             const flatGrid = parsedBoard(objects[0].data.content["fields"]["active_board"]["fields"])
-            slideDirection = getSlideDirection(flatGrid);
-        }
+            let grid = flattenTo2DGrid(flatGrid);
 
-        console.log("SUI8192ObjectId:", SUI8192ObjectId)
+            const manager = new Manager(4);
+            manager.pointCells(grid);
+            // manager.pointCells([
+            //   [4, 8, 32, 64], //第一行
+            //   [2, null, 4, 8], //第二行
+            //   [null, null, null, 16],
+            //   [null, null, null, 4],
+            // ]);
+
+            manager.pointScore(score);
+            const best = manager.getBest();
+            console.log("best:", best.move)
+            slideDirection= resetDirection(best.move)
+            console.log("slideDirection:", slideDirection)
+            // slideDirection = getSlideDirection(flatGrid);
+        }
 
         const timeout = getRandomNumber(2, 10)
         console.log("timeout:", timeout)
@@ -79,58 +94,75 @@ function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function getSlideDirection(flatGrid: FlatGrid): number {
-    let grid = flattenTo2DGrid(flatGrid);
-
-    if(canSlideUp(grid)) {
-        console.log(" ⬆️")
-        return 2; // Slide Up
-    } else if(canSlideLeft(grid)) {
-        console.log(" ⬅️")
-        return 0; // Slide Left
-    } else if(canSlideRight(grid)) {
-        console.log(" ➡️")
-        return 1; // Slide Right
-    } else if(canSlideDown(grid)) {
-        console.log(" ⬇️")
-        return 3; // Slide Down
-    } else {
-        throw new Error("No valid moves left");
+function resetDirection(aiMove: string): number {
+    switch (aiMove) {
+        case '0':
+            console.log(" ⬆️")
+            return 2;
+        case '1':
+            console.log(" ➡️")
+            return 1; // Slide Right
+        case '2':
+            console.log(" ⬇️")
+            return 3;
+        case '3':
+            console.log(" ⬅️")
+            return 0;
     }
 }
 
-function canSlideUp(grid: Grid): boolean {
-    for(let col = 0; col < 4; col++) {
-        for(let row = 1; row < 4; row++) {
-            if(grid[row][col] !== 0 && (grid[row-1][col] === 0 || grid[row-1][col] === grid[row][col])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function canSlideLeft(grid: Grid): boolean {
-    for(let row = 0; row < 4; row++) {
-        for(let col = 1; col < 4; col++) {
-            if(grid[row][col] !== 0 && (grid[row][col-1] === 0 || grid[row][col-1] === grid[row][col])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function canSlideRight(grid: Grid): boolean {
-    for(let row = 0; row < 4; row++) {
-        for(let col = 2; col >= 0; col--) {
-            if(grid[row][col] !== 0 && (grid[row][col+1] === 0 || grid[row][col+1] === grid[row][col])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
+// function getSlideDirection(flatGrid: FlatGrid): number {
+//     let grid = flattenTo2DGrid(flatGrid);
+//
+//     if(canSlideLeft(grid)) {
+//         console.log(" ⬅️")
+//         return 0; // Slide Left0
+//     } else if(canSlideUp(grid)) {
+//         console.log(" ⬆️")
+//         return 2; // Slide Up
+//     } else if(canSlideRight(grid)) {
+//         console.log(" ➡️")
+//         return 1; // Slide Right
+//     } else if(canSlideDown(grid)) {
+//         console.log(" ⬇️")
+//         return 3; // Slide Down
+//     } else {
+//         throw new Error("No valid moves left");
+//     }
+// }
+//
+// function canSlideUp(grid: Grid): boolean {
+//     for(let col = 0; col < 4; col++) {
+//         for(let row = 1; row < 4; row++) {
+//             if(grid[row][col] !== 0 && (grid[row-1][col] === 0 || grid[row-1][col] === grid[row][col])) {
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
+//
+// function canSlideLeft(grid: Grid): boolean {
+//     for(let row = 0; row < 4; row++) {
+//         for(let col = 1; col < 4; col++) {
+//             if(grid[row][col] !== 0 && (grid[row][col-1] === 0 || grid[row][col-1] === grid[row][col])) {
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
+//
+// function canSlideRight(grid: Grid): boolean {
+//     for(let row = 0; row < 4; row++) {
+//         for(let col = 2; col >= 0; col--) {
+//             if(grid[row][col] !== 0 && (grid[row][col+1] === 0 || grid[row][col+1] === grid[row][col])) {
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
 
 function canSlideDown(grid: Grid): boolean {
     for(let col = 0; col < 4; col++) {
