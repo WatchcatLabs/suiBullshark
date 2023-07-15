@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { readFileSync, writeFileSync } from 'fs';
+
 
 import {SuiMnemonic} from "./src/accounts/mnemonic";
 import {JsonRpcProvider, Connection, Ed25519Keypair, fromB64} from '@mysten/sui.js';
@@ -137,13 +139,19 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                     continue
                 }
 
-                process.env['SUI8192_ObjectId'] = SUI8192ObjectId;
-                const envFileContent = Object.entries(process.env)
-                    .map(([key, value]) => `${key}=${value}`)
-                    .join('\n');
+                if (userAccountType==="mnemonic") {
+                    process.env['SUI8192_ObjectId'] = SUI8192ObjectId;
+                    const envFileContent = Object.entries(process.env)
+                        .map(([key, value]) => `${key}=${value}`)
+                        .join('\n');
 
-                const envFilePath = path.join(__dirname, './.env');
-                fs.writeFileSync(envFilePath, envFileContent);
+                    const envFilePath = path.join(__dirname, './.env');
+                    fs.writeFileSync(envFilePath, envFileContent);
+                } else {
+                    console.log("sync %s game_id for %s account", SUI8192ObjectId, account.getPublicKey().toSuiAddress())
+                    // 同步 game_id 到私钥
+                    syncAccount(account.getPublicKey().toSuiAddress(),SUI8192ObjectId)
+                }
                 continue
             }
 
@@ -173,6 +181,22 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
     }
 }
 
+function syncAccount(address: string, newObjectId: string) {
+    let data = readFileSync('account.json', 'utf-8');
+    let json = JSON.parse(data);
+
+    // 更新 JSON
+    for (let item of json) {
+        if (item.address === address) {
+            item.objectId = newObjectId;
+            break;
+        }
+    }
+
+    // 写回 JSON 到文件
+    let newData = JSON.stringify(json, null, 2);
+    writeFileSync('account.json', newData, 'utf-8');
+}
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
