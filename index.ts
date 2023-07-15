@@ -187,7 +187,7 @@ function syncAccount(address: string, newObjectId: string) {
 
     // 更新 JSON
     for (let item of json) {
-        if (item.address === address) {
+        if (item.address.toLowerCase() === address.toLowerCase()) {
             item.objectId = newObjectId;
             break;
         }
