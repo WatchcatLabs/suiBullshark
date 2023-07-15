@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 import {SuiMnemonic} from "./src/accounts/mnemonic";
-import {JsonRpcProvider, Connection, Ed25519Keypair} from '@mysten/sui.js';
+import {JsonRpcProvider, Connection, Ed25519Keypair, fromB64} from '@mysten/sui.js';
 import {Sui8192} from "./src/sui8192/sui8192";
 import {SuiCoinFlip} from "./src/flip/flip";
 const Manager = require('./src/AI');
@@ -12,6 +12,7 @@ const ROWS = 4;
 const COLUMNS = 4;
 
 dotenv.config();
+const userAccountType = process.env.USE_ACCOUNT_TYPE || "mnemonic";
 const mnemonic = process.env.MNEMONIC || "";
 let rpc = process.env.RPC || "";
 const mnemonicIndex = Number(process.env.MNEMONIC_INDEX) || 0;
@@ -44,10 +45,40 @@ async function main() {
     console.log("mnemonicIndex:", mnemonicIndex)
 // connect to a custom RPC server
     const provider = new JsonRpcProvider(connection);
-    const account = suiMnemonic.getAccount(mnemonicIndex)
 
-    runFlipCoin(provider, account)
-    run2048(provider, account)
+    if (userAccountType === "mnemonic") {
+        const account = suiMnemonic.getAccount(mnemonicIndex)
+        run2048(provider, account)
+    } else {
+        // 私钥
+        const filePath = path.resolve(__dirname, 'account.json');
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const accountData = JSON.parse(fileContent);
+
+        for (let account of accountData) {
+            if ('private_key' in account && 'objectId' in account) {
+                if (account.private_key) {
+                    // console.log("private_key:", account.private_key)
+                    let privateKeyHex = account.private_key;
+                    if (privateKeyHex.startsWith('0x')) {
+                        privateKeyHex = privateKeyHex.slice(2);
+                    }
+                    const privateKeyBase64 = Buffer.from(privateKeyHex, 'hex').toString('base64');
+                    if (privateKeyBase64.length !== 44) {
+                        console.log('The private_key is not the correct size. %s', privateKeyBase64.length);
+                    } else {
+                        const _account = Ed25519Keypair.fromSecretKey(fromB64(privateKeyBase64));
+                        run2048(provider, _account)
+
+                    }
+                } else {
+                    console.log('The private_key field is empty.');
+                }
+            } else {
+                console.error('The object does not have the required properties. %s', account);
+            }
+        }
+    }
 }
 
 type Grid = number[][];
@@ -81,7 +112,7 @@ async function runFlipCoin(provider: JsonRpcProvider,
 async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
     if (SwitchSui8129 === true) {
         while (true) {
-            console.log("start game sui8192")
+            console.log("start game sui8192 for %s account", account.getPublicKey().toSuiAddress())
 
             const objects =await provider.multiGetObjects({
                 ids: [SUI8192ObjectId],
@@ -102,7 +133,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 console.log("__dirname", __dirname)
                 SUI8192ObjectId = await sui8192.createGame(account);
                 if (SUI8192ObjectId === "") {
-                    console.error("created a new sui 8192")
+                    console.error("created a new sui 8192 for %s account", account.getPublicKey().toSuiAddress())
                     continue
                 }
 
@@ -116,7 +147,6 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 continue
             }
 
-            // console.log("aaaa", objects[0].data.content)
             // return
             let slideDirection = 0
             if (objects[0].data.content["fields"]["active_board"] != undefined) {
@@ -128,12 +158,12 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
 
                 manager.pointScore(score);
                 const best = manager.getBest();
-                console.log("best:", best.move)
+                // console.log("best:", best.move)
                 slideDirection= resetDirection(best.move)
-                console.log("slideDirection:", slideDirection)
+                console.log("slideDirection for %s account:", slideDirection, account.getPublicKey().toSuiAddress())
             }
             const timeout = getRandomNumber(2, 10)
-            console.log("delay:", timeout)
+            console.log("delay for %s account:", timeout, account.getPublicKey().toSuiAddress())
 
             await sleep(timeout)
             await sui8192.game8192(account, slideDirection)
@@ -163,71 +193,6 @@ function resetDirection(aiMove: string): number {
             return 0;
     }
 }
-
-// function getSlideDirection(flatGrid: FlatGrid): number {
-//     let grid = flattenTo2DGrid(flatGrid);
-//
-//     if(canSlideLeft(grid)) {
-//         console.log(" ⬅️")
-//         return 0; // Slide Left0
-//     } else if(canSlideUp(grid)) {
-//         console.log(" ⬆️")
-//         return 2; // Slide Up
-//     } else if(canSlideRight(grid)) {
-//         console.log(" ➡️")
-//         return 1; // Slide Right
-//     } else if(canSlideDown(grid)) {
-//         console.log(" ⬇️")
-//         return 3; // Slide Down
-//     } else {
-//         throw new Error("No valid moves left");
-//     }
-// }
-//
-// function canSlideUp(grid: Grid): boolean {
-//     for(let col = 0; col < 4; col++) {
-//         for(let row = 1; row < 4; row++) {
-//             if(grid[row][col] !== 0 && (grid[row-1][col] === 0 || grid[row-1][col] === grid[row][col])) {
-//                 return true;
-//             }
-//         }
-//     }
-//     return false;
-// }
-//
-// function canSlideLeft(grid: Grid): boolean {
-//     for(let row = 0; row < 4; row++) {
-//         for(let col = 1; col < 4; col++) {
-//             if(grid[row][col] !== 0 && (grid[row][col-1] === 0 || grid[row][col-1] === grid[row][col])) {
-//                 return true;
-//             }
-//         }
-//     }
-//     return false;
-// }
-//
-// function canSlideRight(grid: Grid): boolean {
-//     for(let row = 0; row < 4; row++) {
-//         for(let col = 2; col >= 0; col--) {
-//             if(grid[row][col] !== 0 && (grid[row][col+1] === 0 || grid[row][col+1] === grid[row][col])) {
-//                 return true;
-//             }
-//         }
-//     }
-//     return false;
-// }
-
-function canSlideDown(grid: Grid): boolean {
-    for(let col = 0; col < 4; col++) {
-        for(let row = 2; row >= 0; row--) {
-            if(grid[row][col] !== 0 && (grid[row+1][col] === 0 || grid[row+1][col] === grid[row][col])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 
 function flattenTo2DGrid(flatGrid: FlatGrid): Grid {
     let grid: Grid = [];

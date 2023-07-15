@@ -79,12 +79,12 @@ export class Sui8192 {
             });
 
             if (result.effects?.status?.status === "failure") {
-                console.error('submit game8192 failed', result)
+                console.error('account: %s, submit game8192 failed', account.getPublicKey().toSuiAddress(), result)
             } else {
-                console.log('submit game8192 succeed', getExploreLink(result.digest.toString()))
+                console.log('account: %s, submit game8192 succeed', account.getPublicKey().toSuiAddress(), getExploreLink(result.digest.toString()))
             }
         } catch (e) {
-            console.log("request JSONRPCError")
+            console.log("account: %s, request JSONRPCError",account.getPublicKey().toSuiAddress(), )
         }
     }
 }
