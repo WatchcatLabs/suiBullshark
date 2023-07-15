@@ -8,7 +8,10 @@
     "debug": "ts-node --inspect <your-file>.ts"
   },
   "dependencies": {
+    "@mysten/kiosk": "^0.3.3",
     "@mysten/sui.js": "^0.37.1",
+    "@noble/hashes": "^1.3.1",
+    "bignumber.js": "^9.1.1",
     "decimal.js": "^10.4.3",
     "dotenv": "^16.0.3",
     "typescript": "^5.0.4"

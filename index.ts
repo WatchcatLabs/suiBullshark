@@ -1,10 +1,11 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 import {SuiMnemonic} from "./src/accounts/mnemonic";
-import  {SuiTool} from "./src/suiclient/sui";
 import {JsonRpcProvider, Connection, Ed25519Keypair} from '@mysten/sui.js';
 import {Sui8192} from "./src/sui8192/sui8192";
-import {ObjectId, SuiObjectDataOptions} from "@mysten/sui.js/src/types";
+import {SuiCoinFlip} from "./src/flip/flip";
 const Manager = require('./src/AI');
 
 const ROWS = 4;
@@ -14,7 +15,22 @@ dotenv.config();
 const mnemonic = process.env.MNEMONIC || "";
 let rpc = process.env.RPC || "";
 const mnemonicIndex = Number(process.env.MNEMONIC_INDEX) || 0;
-const SUI8192ObjectId = process.env.SUI8192_ObjectId
+let SUI8192ObjectId = process.env.SUI8192_ObjectId
+
+const SwitchSui8129 = process.env.Switch_Sui8129?.toLowerCase() === 'true';
+const SwitchSUIFlipCoin = process.env.Switch_SUI_Flip_Coin?.toLowerCase() === 'true';
+let flipCoinInterval = Number(process.env.Sui_Flip_Coin_Interval);
+let flip_Coin_Amount = Number(process.env.Flip_Coin_Amount);
+// Flip_Coin_Amount
+if (isNaN(flipCoinInterval) || flipCoinInterval ===0) {
+    console.warn('Sui_Flip_Coin_Interval is not a number. Defaulting to 7200s ==> 2H');
+    flipCoinInterval = 7200;
+}
+
+if (isNaN(flip_Coin_Amount)) {
+    console.warn('flip_Coin_Amount is not a number. Defaulting to 1SUI');
+    flip_Coin_Amount = 1;
+}
 
 async function main() {
     const suiMnemonic = new SuiMnemonic(mnemonic);
@@ -30,70 +46,107 @@ async function main() {
     const provider = new JsonRpcProvider(connection);
     const account = suiMnemonic.getAccount(mnemonicIndex)
 
-    await run2048(provider, account)
+    runFlipCoin(provider, account)
+    run2048(provider, account)
 }
 
 type Grid = number[][];
 type FlatGrid = number[];
 
+async function runFlipCoin(provider: JsonRpcProvider,
+                           account: Ed25519Keypair) {
+    if (SwitchSUIFlipCoin === true) {
+        while(true){
+            console.log("start [game flip coin]")
+            const coinFlip = new SuiCoinFlip(provider)
+            const randomZeroOrOne = Math.floor(Math.random() * 2);
+
+            let choice = ""
+            if (randomZeroOrOne === 0) {
+                choice = "heads"
+            } else {
+                choice = "tails"
+            }
+
+            await coinFlip.start(account, choice, flip_Coin_Amount)
+            const timeout = getRandomNumber(flipCoinInterval, flipCoinInterval+10)
+            console.log("delay:", timeout)
+            await sleep(timeout)
+        }
+    } else {
+        console.warn("paused flip coin game")
+    }
+}
+
 async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
-    while (true) {
-        const objects =await provider.multiGetObjects({
-            ids: [SUI8192ObjectId],
-            options: {
-                showContent: true,
-            }})
+    if (SwitchSui8129 === true) {
+        while (true) {
+            console.log("start game sui8192")
+
+            const objects =await provider.multiGetObjects({
+                ids: [SUI8192ObjectId],
+                options: {
+                    showContent: true,
+                }})
 
 
-        if (objects.length == 0) {
-            console.log("not exist sui log")
-            return
+            if (objects.length == 0) {
+                console.log("not exist sui log")
+                return
+            }
+
+            const sui8192 = new Sui8192(provider, SUI8192ObjectId);
+            const score = objects[0].data.content["fields"]["score"]
+            if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
+                console.log("game over! auto create new round")
+                console.log("__dirname", __dirname)
+                SUI8192ObjectId = await sui8192.createGame(account);
+                if (SUI8192ObjectId === "") {
+                    console.error("created a new sui 8192")
+                    continue
+                }
+
+                process.env['SUI8192_ObjectId'] = SUI8192ObjectId;
+                const envFileContent = Object.entries(process.env)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join('\n');
+
+                const envFilePath = path.join(__dirname, './.env');
+                fs.writeFileSync(envFilePath, envFileContent);
+                continue
+            }
+
+            // console.log("aaaa", objects[0].data.content)
+            // return
+            let slideDirection = 0
+            if (objects[0].data.content["fields"]["active_board"] != undefined) {
+                const flatGrid = parsedBoard(objects[0].data.content["fields"]["active_board"]["fields"])
+                let grid = flattenTo2DGrid(flatGrid);
+
+                const manager = new Manager(4);
+                manager.pointCells(grid);
+
+                manager.pointScore(score);
+                const best = manager.getBest();
+                console.log("best:", best.move)
+                slideDirection= resetDirection(best.move)
+                console.log("slideDirection:", slideDirection)
+            }
+            const timeout = getRandomNumber(2, 10)
+            console.log("delay:", timeout)
+
+            await sleep(timeout)
+            await sui8192.game8192(account, slideDirection)
         }
-
-        const score = objects[0].data.content["fields"]["score"]
-        if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
-            console.log("game over, plz create new round")
-            return
-        }
-
-        // console.log("aaaa", objects[0].data.content)
-        // return
-        let slideDirection = 0
-        if (objects[0].data.content["fields"]["active_board"] != undefined) {
-            const flatGrid = parsedBoard(objects[0].data.content["fields"]["active_board"]["fields"])
-            let grid = flattenTo2DGrid(flatGrid);
-
-            const manager = new Manager(4);
-            manager.pointCells(grid);
-            // manager.pointCells([
-            //   [4, 8, 32, 64], //第一行
-            //   [2, null, 4, 8], //第二行
-            //   [null, null, null, 16],
-            //   [null, null, null, 4],
-            // ]);
-
-            manager.pointScore(score);
-            const best = manager.getBest();
-            console.log("best:", best.move)
-            slideDirection= resetDirection(best.move)
-            console.log("slideDirection:", slideDirection)
-            // slideDirection = getSlideDirection(flatGrid);
-        }
-
-        const timeout = getRandomNumber(2, 10)
-        console.log("timeout:", timeout)
-
-        await delay(timeout)
-        const sui8192 = new Sui8192(provider, SUI8192ObjectId);
-        await sui8192.game8192(account, slideDirection)
+    } else {
+        console.warn("paused sui8192 game")
     }
 }
 
 
-function delay(ms: number) {
+function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
 function resetDirection(aiMove: string): number {
     switch (aiMove) {
         case '0':
