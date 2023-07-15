@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { readFileSync, writeFileSync } from 'fs';
 
-
 import {SuiMnemonic} from "./src/accounts/mnemonic";
 import {JsonRpcProvider, Connection, Ed25519Keypair, fromB64} from '@mysten/sui.js';
 import {Sui8192} from "./src/sui8192/sui8192";
@@ -70,8 +69,7 @@ async function main() {
                         console.log('The private_key is not the correct size. %s', privateKeyBase64.length);
                     } else {
                         const _account = Ed25519Keypair.fromSecretKey(fromB64(privateKeyBase64));
-                        run2048(provider, _account)
-
+                        run2048(provider, _account);
                     }
                 } else {
                     console.log('The private_key field is empty.');
@@ -114,10 +112,19 @@ async function runFlipCoin(provider: JsonRpcProvider,
 async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
     if (SwitchSui8129 === true) {
         while (true) {
-            console.log("start game sui8192 for %s account", account.getPublicKey().toSuiAddress())
+            let originGameId = ""
+            // 获取 account 的 最新 gameId
+            if (userAccountType==="mnemonic") {
+                console.log("mnemonic mode")
+                originGameId = process.env.SUI8192_ObjectId
+            } else {
+                console.log("private mode")
+                originGameId = getGameIdViaAccount(account.getPublicKey().toSuiAddress())
+            }
+            console.log("start game sui8192 for %s account, gameId: %s", account.getPublicKey().toSuiAddress(), originGameId)
 
             const objects =await provider.multiGetObjects({
-                ids: [SUI8192ObjectId],
+                ids: [originGameId],
                 options: {
                     showContent: true,
                 }})
@@ -128,19 +135,19 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 return
             }
 
-            const sui8192 = new Sui8192(provider, SUI8192ObjectId);
+            const sui8192 = new Sui8192(provider, originGameId);
             const score = objects[0].data.content["fields"]["score"]
             if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
                 console.log("game over! auto create new round")
                 console.log("__dirname", __dirname)
-                SUI8192ObjectId = await sui8192.createGame(account);
-                if (SUI8192ObjectId === "") {
+                const gameId = await sui8192.createGame(account);
+                if (gameId === "") {
                     console.error("created a new sui 8192 for %s account", account.getPublicKey().toSuiAddress())
                     continue
                 }
 
                 if (userAccountType==="mnemonic") {
-                    process.env['SUI8192_ObjectId'] = SUI8192ObjectId;
+                    process.env['SUI8192_ObjectId'] = gameId;
                     const envFileContent = Object.entries(process.env)
                         .map(([key, value]) => `${key}=${value}`)
                         .join('\n');
@@ -148,9 +155,9 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                     const envFilePath = path.join(__dirname, './.env');
                     fs.writeFileSync(envFilePath, envFileContent);
                 } else {
-                    console.log("sync %s game_id for %s account", SUI8192ObjectId, account.getPublicKey().toSuiAddress())
+                    console.log("sync %s game_id for %s account", gameId, account.getPublicKey().toSuiAddress())
                     // 同步 game_id 到私钥
-                    syncAccount(account.getPublicKey().toSuiAddress(),SUI8192ObjectId)
+                    syncAccount(account.getPublicKey().toSuiAddress(),gameId)
                 }
                 continue
             }
@@ -179,6 +186,19 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
     } else {
         console.warn("paused sui8192 game")
     }
+}
+
+function getGameIdViaAccount(address: string) {
+    let data = readFileSync('account.json', 'utf-8');
+    let json = JSON.parse(data);
+
+    // 更新 JSON
+    for (let item of json) {
+        if (item.address.toLowerCase() === address.toLowerCase()) {
+            return item.objectId
+        }
+    }
+    return ""
 }
 
 function syncAccount(address: string, newObjectId: string) {

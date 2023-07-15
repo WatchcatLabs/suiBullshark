@@ -40,7 +40,7 @@ export class Sui8192 {
                 },
             });
 
-            console.log("result:", result)
+            // console.log("result:", result)
             if (result.effects?.status?.status === "failure") {
                 console.error('submit create game8192 failed', result)
                 return ""
