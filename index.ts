@@ -116,6 +116,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
             // 检查账户余额
             const balance = await provider.getBalance({owner:account.getPublicKey().toSuiAddress()})
             const amount = fromDecimalsAmount(balance.totalBalance, 9)
+            console.log("%s account balance: %sSUI", account.getPublicKey().toSuiAddress(), amount)
 
             let originGameId = ""
             // 获取 account 的 最新 gameId
