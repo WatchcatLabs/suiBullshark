@@ -91,7 +91,7 @@ AI.prototype.search = function (depth, alpha, beta, positions, cutoffs) {
     for (var value in scores) {
       // 2 and 4
       for (var i = 0; i < scores[value].length; i++) {
-        if (scores[value][i] == maxScore) {
+        if (scores[value][i] === maxScore) {
           candidates.push({ position: cells[i], value: parseInt(value, 10) });
         }
       }
@@ -136,7 +136,7 @@ AI.prototype.iterativeDeep = function () {
   var best;
   do {
     var newBest = this.search(depth, -10000, 10000, 0, 0);
-    if (newBest.move == -1) {
+    if (newBest.move === -1) {
       break;
     } else {
       best = newBest;

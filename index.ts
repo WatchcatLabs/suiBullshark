@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { readFileSync, writeFileSync } from 'fs';
+import {fromDecimalsAmount} from './src/utils/decimals';
 
 import {SuiMnemonic} from "./src/accounts/mnemonic";
 import {JsonRpcProvider, Connection, Ed25519Keypair, fromB64} from '@mysten/sui.js';
@@ -112,6 +113,10 @@ async function runFlipCoin(provider: JsonRpcProvider,
 async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
     if (SwitchSui8129 === true) {
         while (true) {
+            // 检查账户余额
+            const balance = await provider.getBalance({owner:account.getPublicKey().toSuiAddress()})
+            const amount = fromDecimalsAmount(balance.totalBalance, 9)
+
             let originGameId = ""
             // 获取 account 的 最新 gameId
             if (userAccountType==="mnemonic") {
@@ -140,6 +145,12 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
             if (objects[0].data.content["fields"]["active_board"]["fields"]["game_over"] === true) {
                 console.log("game over! auto create new round")
                 console.log("__dirname", __dirname)
+
+                if (amount < 0.21) {
+                    console.log("账户余额不足，退出游戏，请充值后再继续游戏")
+                    return
+                }
+
                 const gameId = await sui8192.createGame(account);
                 if (gameId === "") {
                     console.error("created a new sui 8192 for %s account", account.getPublicKey().toSuiAddress())
@@ -160,6 +171,11 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                     syncAccount(account.getPublicKey().toSuiAddress(),gameId)
                 }
                 continue
+            }
+
+            if (amount < 0.1) {
+                console.log("账户余额不足，退出游戏，请充值后再继续游戏")
+                return
             }
 
             // return
