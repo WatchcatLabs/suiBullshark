@@ -147,7 +147,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 console.log("game over! auto create new round")
                 console.log("__dirname", __dirname)
 
-                if (amount < 0.21) {
+                if (amount <= 1) {
                     console.log("账户余额不足，退出游戏，请充值后再继续游戏")
                     return
                 }
@@ -174,7 +174,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 continue
             }
 
-            if (amount < 0.1) {
+            if (amount <= 1) {
                 console.log("账户余额不足，退出游戏，请充值后再继续游戏")
                 return
             }
@@ -194,7 +194,7 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 slideDirection= resetDirection(best.move)
                 console.log("slideDirection for %s account:", slideDirection, account.getPublicKey().toSuiAddress())
             }
-            const timeout = getRandomNumber(2, 5)
+            const timeout = getRandomNumber(2, 4)
             console.log("delay for %s account:", timeout, account.getPublicKey().toSuiAddress())
 
             await sleep(timeout)
