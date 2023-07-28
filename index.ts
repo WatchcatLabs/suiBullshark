@@ -194,10 +194,10 @@ async function run2048(provider: JsonRpcProvider, account: Ed25519Keypair) {
                 slideDirection= resetDirection(best.move)
                 console.log("slideDirection for %s account:", slideDirection, account.getPublicKey().toSuiAddress())
             }
-            const timeout = getRandomNumber(2, 3)
-            console.log("delay for %s account:", timeout, account.getPublicKey().toSuiAddress())
+            // const timeout = getRandomNumber(2, 3)
+            // console.log("delay for %s account:", timeout, account.getPublicKey().toSuiAddress())
 
-            await sleep(timeout)
+            // await sleep(timeout)
             await sui8192.game8192(account, slideDirection)
         }
     } else {
